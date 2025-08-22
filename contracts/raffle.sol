@@ -7,9 +7,6 @@ import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
 
-  // Winner is selected ever X mins - automated
-  // Chainlink Oracles for randomness
-
   /* ======= Types ======= */
   enum RaffleState {
     OPEN,
@@ -33,7 +30,7 @@ contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
   address private s_recentWinner;
   RaffleState private s_raffleState; 
   uint256 private s_lastTimeStamp;
-  uint256 private immutable s_interval;
+  uint256 private immutable i_interval;
 
 
   /* ======= Events ======= */
@@ -56,7 +53,7 @@ contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
     i_keyHash = s_keyHash;
     s_raffleState = RaffleState.OPEN;
     s_lastTimeStamp = block.timestamp;
-    s_interval = _interval;
+    i_interval = _interval;
   }
   
   /* ======= Functions ======= */
@@ -99,6 +96,7 @@ contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
     s_recentWinner = winner; 
     s_raffleState = RaffleState.OPEN; // reset raffle state 
     s_players = new address payable[](0); // reset the players array
+    s_lastTimeStamp = block.timestamp; // reset the last timestamp
 
     //send the prize to the winner
     (bool success, ) = winner.call{value: address(this).balance}("");
@@ -117,14 +115,12 @@ contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
 
   function checkUpkeep(bytes calldata /* checkData */) public view override returns (bool upkeepNeeded, bytes memory /* performData */){
     bool isOpen = (RaffleState.OPEN == s_raffleState);
-    bool timepassed = ((block.timestamp - s_lastTimeStamp) > s_interval);
+    bool timepassed = ((block.timestamp - s_lastTimeStamp) > i_interval);
     bool hasPlayers = (s_players.length > 0);
     bool hasBalance = address(this).balance > 0;
     upkeepNeeded = (isOpen && timepassed && hasPlayers && hasBalance);
     return (upkeepNeeded, "0x0"); 
   }
-
-
 
   /* ======= View / Pure Functions ======= */
   function getEntranceFee() public view returns(int256){
@@ -137,6 +133,22 @@ contract Raffle is VRFConsumerBaseV2 , AutomationCompatibleInterface {
 
   function getRecentWinner() public view returns(address){
     return s_recentWinner;
+  }
+
+  function getRaffleState() public view returns(RaffleState){
+    return s_raffleState;
+  }
+
+  function getNumWords() public pure returns(uint256){
+    return NUM_WORDS;
+  }
+
+  function getNumberOfPlayers() public view returns(uint256){
+    return s_players.length;
+  }
+
+  function getRequestConfirmations() public pure returns(uint256){
+    return REQUEST_CONFIRMATION;
   }
 
 }
